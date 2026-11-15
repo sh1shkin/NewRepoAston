@@ -1,12 +1,12 @@
-package ru.liptech.spring.dz2.db;
+package ru.liptech.spring.dz2.config;
 
 import org.hibernate.*;
 
 import org.hibernate.cfg.Configuration;
-import ru.liptech.spring.dz2.model.User;
+import ru.liptech.spring.dz2.entity.User;
 
 
-public final class DataBaseConnector {
+public final class HibernateConfig {
     private static SessionFactory session = buildSession();
     public static SessionFactory buildSession() {
         Configuration configuration = new Configuration();

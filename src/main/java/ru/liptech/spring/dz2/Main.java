@@ -1,17 +1,15 @@
 package ru.liptech.spring.dz2;
 
-import ru.liptech.spring.dz2.controller.UserBuilder;
-import ru.liptech.spring.dz2.controller.UserDaoController;
-import ru.liptech.spring.dz2.dao.UserDao;
-import ru.liptech.spring.dz2.db.DataBaseConnector;
-import ru.liptech.spring.dz2.model.User;
+import ru.liptech.spring.dz2.config.HibernateConfig;
+import ru.liptech.spring.dz2.entity.User;
+import ru.liptech.spring.dz2.service.UserService;
 
 import java.util.List;
 import java.util.Scanner;
 
 public class Main {
 
-    private final UserDao userDao = new UserDaoController();
+    private final UserService userService = new UserService();
     private final Scanner scanner = new Scanner(System.in);
 
     public static void main(String[] args) {
@@ -19,7 +17,7 @@ public class Main {
         try {
             app.run();
         } finally {
-            DataBaseConnector.closeSession();
+            HibernateConfig.closeSession();
         }
     }
 
@@ -40,6 +38,10 @@ public class Main {
                     }
                     default -> System.out.println("Неверный пункт меню.");
                 }
+            } catch (NumberFormatException e) {
+                System.out.println("Ошибка: введите корректное число.");
+            } catch (IllegalArgumentException e) {
+                System.out.println("Ошибка: " + e.getMessage());
             } catch (Exception e) {
                 System.out.println("Ошибка: " + e.getMessage());
             }
@@ -65,26 +67,17 @@ public class Main {
         System.out.print("Возраст (можно пусто): ");
         String ageStr = scanner.nextLine().trim();
 
-        Integer age = null;
-        if (!ageStr.isEmpty()) {
-            age = Integer.parseInt(ageStr);
-        }
+        Integer age = ageStr.isEmpty() ? null : Integer.parseInt(ageStr);
 
-        User user = new UserBuilder()
-                .setName(name)
-                .setEmail(email)
-                .setAge(age)
-                .build();
-
-        User saved = userDao.create(user);
+        User saved = userService.create(name, email, age);
         System.out.println("Создан: id=" + saved.getId()
                 + ", name=" + saved.getName()
                 + ", email=" + saved.getEmail());
     }
 
     private void showAllUsers() {
-        List<User> users = userDao.readUsers();
-        if (users == null || users.isEmpty()) {
+        List<User> users = userService.getAll();
+        if (users.isEmpty()) {
             System.out.println("Пользователей нет.");
             return;
         }
@@ -101,16 +94,7 @@ public class Main {
         System.out.print("ID пользователя: ");
         int id = Integer.parseInt(scanner.nextLine().trim());
 
-        List<User> users = userDao.readUsers();
-        User existing = null;
-        if (users != null) {
-            for (User u : users) {
-                if (u.getId() != null && u.getId() == id) {
-                    existing = u;
-                    break;
-                }
-            }
-        }
+        User existing = userService.findById(id);
         if (existing == null) {
             System.out.println("Пользователь не найден.");
             return;
@@ -118,23 +102,21 @@ public class Main {
 
         System.out.print("Новое имя [" + existing.getName() + "]: ");
         String name = scanner.nextLine().trim();
-        if (!name.isEmpty()) {
-            existing.setName(name);
+        if (name.isEmpty()) {
+            name = null;
         }
 
         System.out.print("Новый email [" + existing.getEmail() + "]: ");
         String email = scanner.nextLine().trim();
-        if (!email.isEmpty()) {
-            existing.setEmail(email);
+        if (email.isEmpty()) {
+            email = null;
         }
 
         System.out.print("Новый возраст [" + existing.getAge() + "]: ");
         String ageStr = scanner.nextLine().trim();
-        if (!ageStr.isEmpty()) {
-            existing.setAge(Integer.parseInt(ageStr));
-        }
+        Integer age = ageStr.isEmpty() ? null : Integer.parseInt(ageStr);
 
-        User updated = userDao.update(existing);
+        User updated = userService.update(id, name, email, age);
         System.out.println("Обновлён: " + updated.getName() + " / " + updated.getEmail());
     }
 
@@ -142,24 +124,7 @@ public class Main {
         System.out.print("ID для удаления: ");
         int id = Integer.parseInt(scanner.nextLine().trim());
 
-        User user = new User();
-
-        List<User> users = userDao.readUsers();
-        User toDelete = null;
-        if (users != null) {
-            for (User u : users) {
-                if (u.getId() != null && u.getId() == id) {
-                    toDelete = u;
-                    break;
-                }
-            }
-        }
-        if (toDelete == null) {
-            System.out.println("Пользователь не найден.");
-            return;
-        }
-
-        boolean deleted = userDao.delete(toDelete);
-        System.out.println(deleted ? "Удалён." : "Не удалось удалить.");
+        boolean deleted = userService.delete(id);
+        System.out.println(deleted ? "Удалён." : "Пользователь не найден.");
     }
 }

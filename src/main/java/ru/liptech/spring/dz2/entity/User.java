@@ -1,4 +1,4 @@
-package ru.liptech.spring.dz2.model;
+package ru.liptech.spring.dz2.entity;
 
 import jakarta.persistence.*;
 

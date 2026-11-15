@@ -1,6 +1,6 @@
-package ru.liptech.spring.dz2.controller;
+package ru.liptech.spring.dz2.util;
 
-import ru.liptech.spring.dz2.model.User;
+import ru.liptech.spring.dz2.entity.User;
 
 public class UserBuilder {
     private String name;

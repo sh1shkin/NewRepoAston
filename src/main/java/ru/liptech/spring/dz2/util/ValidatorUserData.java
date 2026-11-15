@@ -1,4 +1,4 @@
-package ru.liptech.spring.dz2.controller;
+package ru.liptech.spring.dz2.util;
 
 public final class ValidatorUserData {
     public static void validate(String name, String email) {
