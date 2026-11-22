@@ -5,10 +5,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import ru.liptech.spring.dz2.dao.UserDao;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+import ru.liptech.spring.dz2.dto.UserRequestDto;
+import ru.liptech.spring.dz2.dto.UserResponseDto;
 import ru.liptech.spring.dz2.entity.User;
+import ru.liptech.spring.dz2.repository.UserRepository;
+import ru.liptech.spring.dz2.service.impl.UserServiceImpl;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -18,64 +24,83 @@ import static org.mockito.Mockito.*;
 class UserServiceTest {
 
     @Mock
-    private UserDao userDao;
+    private UserRepository userRepository;
 
     @InjectMocks
-    private UserService userService;
+    private UserServiceImpl userService;
 
     @Test
-    void create_validData_callsDaoAndReturnsUser() {
-        when(userDao.create(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+    void create_validData_callsRepositoryAndReturnsDto() {
+        // Подготовка
+        UserRequestDto request = new UserRequestDto("Max", "max@mail.ru", 22);
+        User savedUser = new User().setName("Max").setEmail("max@mail.ru").setAge(22);
 
-        User result = userService.create("Max", "max@mail.ru", 22);
+        when(userRepository.existsByEmail("max@mail.ru")).thenReturn(false);
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
 
-        assertEquals("Max", result.getName());
-        assertEquals("max@mail.ru", result.getEmail());
-        assertEquals(22, result.getAge());
-        verify(userDao, times(1)).create(any(User.class));
+        // Выполнение
+        UserResponseDto result = userService.create(request);
+
+        // Проверка
+        assertEquals("Max", result.name());
+        assertEquals("max@mail.ru", result.email());
+        assertEquals(22, result.age());
+        verify(userRepository, times(1)).existsByEmail("max@mail.ru");
+        verify(userRepository, times(1)).save(any(User.class));
     }
 
     @Test
-    void create_invalidAge_throwsAndDoesNotCallDao() {
-        assertThrows(IllegalArgumentException.class,
-                () -> userService.create("Max", "max@mail.ru", -5));
-        verify(userDao, never()).create(any());
+    void create_emailAlreadyExists_throwsConflict() {
+        UserRequestDto request = new UserRequestDto("Max", "max@mail.ru", 22);
+        when(userRepository.existsByEmail("max@mail.ru")).thenReturn(true);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> userService.create(request));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(userRepository, never()).save(any());
     }
 
     @Test
-    void getAll_returnsListFromDao() {
-        when(userDao.readUsers()).thenReturn(
-                List.of(new User().setName("A").setEmail("a@mail.ru"))
-        );
+    void findAll_returnsListFromRepository() {
+        User user = new User().setName("A").setEmail("a@mail.ru");
+        when(userRepository.findAll()).thenReturn(List.of(user));
 
-        List<User> result = userService.getAll();
+        List<UserResponseDto> result = userService.findAll();
 
         assertEquals(1, result.size());
-        assertEquals("A", result.get(0).getName());
-        verify(userDao).readUsers();
+        assertEquals("A", result.get(0).name());
+        verify(userRepository).findAll();
     }
 
     @Test
-    void getAll_whenDaoReturnsNull_returnsEmptyList() {
-        when(userDao.readUsers()).thenReturn(null);
+    void findById_userNotFound_throwsNotFound() {
+        when(userRepository.findById(99)).thenReturn(Optional.empty());
 
-        assertTrue(userService.getAll().isEmpty());
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> userService.findById(99));
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
     }
 
     @Test
-    void update_userNotFound_throws() {
-        when(userDao.readUsers()).thenReturn(List.of());
+    void update_userNotFound_throwsNotFound() {
+        when(userRepository.findById(99)).thenReturn(Optional.empty());
+        UserRequestDto request = new UserRequestDto("New", "new@mail.ru", 30);
 
-        assertThrows(IllegalArgumentException.class,
-                () -> userService.update(99, "New", null, null));
-        verify(userDao, never()).update(any());
+        assertThrows(ResponseStatusException.class,
+                () -> userService.update(99, request));
+
+        verify(userRepository, never()).save(any());
     }
 
     @Test
-    void delete_userNotFound_returnsFalse() {
-        when(userDao.readUsers()).thenReturn(List.of());
+    void delete_userNotFound_throwsNotFound() {
+        when(userRepository.existsById(99)).thenReturn(false);
 
-        assertFalse(userService.delete(99));
-        verify(userDao, never()).delete(any());
+        assertThrows(ResponseStatusException.class,
+                () -> userService.delete(99));
+
+        verify(userRepository, never()).deleteById(anyInt());
     }
 }
